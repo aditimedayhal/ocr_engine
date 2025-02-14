@@ -1,43 +1,81 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import uvicorn
+from ocr_engine import process_image
 import os
-from ocr_engine import process_pdf, extract_text_from_image
+from typing import Optional
+from pydantic import BaseModel
+import shutil
+import base64
 
-app = Flask(__name__)
-CORS(app)  # Allow cross-origin requests (for React frontend)
+app = FastAPI(
+    title="OCR API",
+    description="API for extracting text from images and PDFs using EasyOCR",
+    version="1.0.0"
+)
 
-UPLOAD_FOLDER = './uploads'
-ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust this in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Create uploads directory if it doesn't exist
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
-# Check if the file is allowed (PDF or image)
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+class OCRResponse(BaseModel):
+    text: str
+    image: Optional[str] = None
+    error: Optional[str] = None
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    file = request.files['file']
-    if file and allowed_file(file.filename):
-        filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(filename)
+@app.post("/ocr", response_model=OCRResponse)
+async def ocr(
+    file: UploadFile = File(...),
+    language: str = Form("en")  # Default language is English
+):
+    if not file:
+        raise HTTPException(status_code=400, detail="No file provided")
+    
+    # Validate file type
+    allowed_extensions = {'.png', '.jpg', '.jpeg', '.pdf', '.tiff'}
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Allowed types: PNG, JPG, PDF, TIFF"
+        )
+    
+    try:
+        # Save uploaded file temporarily
+        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
         
-        if filename.lower().endswith('.pdf'):
-            # Process PDF and convert to images
-            image_paths = process_pdf(filename)
-            texts = []
-            for image_path in image_paths:
-                text = extract_text_from_image(image_path)
-                texts.append(text)
-            return jsonify({'texts': texts})
-        else:
-            # Extract text from image
-            text = extract_text_from_image(filename)
-            return jsonify({'text': text})
+        # Process the image with specified language
+        result = process_image(filepath, language)
+        
+        # Clean up
+        os.remove(filepath)
 
-    return jsonify({'error': 'Invalid file type'}), 400
+        # Convert image bytes to base64
+        image_base64 = base64.b64encode(result['image_with_boxes']).decode('utf-8')
+        
+        return OCRResponse(
+            text=result['text'],
+            image=f"data:image/png;base64,{image_base64}"
+        )
+    
+    except Exception as e:
+        # Clean up in case of error
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        raise HTTPException(status_code=500, detail=str(e))
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
