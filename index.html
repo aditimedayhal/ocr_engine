@@ -1,11 +1,163 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OCR Engine</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OCR Webpage with Custom Field Extraction</title>
+    <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="root"></div>
+    <div class="container">
+        <h1>OCR Text Extractor</h1>
+        
+        <div class="language-select">
+            <label for="languageSelect">Select Language</label>
+            <select id="languageSelect" class="form-select">
+                <option value="en">English</option>
+                <option value="abq">Abaza</option>
+                <option value="ady">Adyghe</option>
+                <option value="af">Afrikaans</option>
+                <option value="sq">Albanian</option>
+                <option value="ang">Angika</option>
+                <option value="ar">Arabic</option>
+                <option value="as">Assamese</option>
+                <option value="ava">Avar</option>
+                <option value="az">Azerbaijani</option>
+                <option value="be">Belarusian</option>
+                <option value="bn">Bengali</option>
+                <option value="bh">Bihari</option>
+                <option value="bho">Bhojpuri</option>
+                <option value="bs">Bosnian</option>
+                <option value="bg">Bulgarian</option>
+                <option value="che">Chechen</option>
+                <option value="ch_sim">Simplified Chinese</option>
+                <option value="ch_tra">Traditional Chinese</option>
+                <option value="cs">Czech</option>
+                <option value="cy">Welsh</option>
+                <option value="da">Danish</option>
+                <option value="dar">Dargwa</option>
+                <option value="de">German</option>
+                <option value="et">Estonian</option>
+                <option value="fa">Persian</option>
+                <option value="fr">French</option>
+                <option value="ga">Irish</option>
+                <option value="gom">Goan Konkani</option>
+                <option value="hi">Hindi</option>
+                <option value="hr">Croatian</option>
+                <option value="hu">Hungarian</option>
+                <option value="id">Indonesian</option>
+                <option value="inh">Ingush</option>
+                <option value="is">Icelandic</option>
+                <option value="it">Italian</option>
+                <option value="ja">Japanese</option>
+                <option value="kbd">Kabardian</option>
+                <option value="kn">Kannada</option>
+                <option value="ko">Korean</option>
+                <option value="ku">Kurdish</option>
+                <option value="la">Latin</option>
+                <option value="lez">Lezghian</option>
+                <option value="lt">Lithuanian</option>
+                <option value="lv">Latvian</option>
+                <option value="mah">Magahi</option>
+                <option value="mai">Maithili</option>
+                <option value="mi">Maori</option>
+                <option value="mn">Mongolian</option>
+                <option value="mr">Marathi</option>
+                <option value="ms">Malay</option>
+                <option value="mt">Maltese</option>
+                <option value="ne">Nepali</option>
+                <option value="new">Newari</option>
+                <option value="no">Norwegian</option>
+                <option value="oc">Occitan</option>
+                <option value="pi">Pali</option>
+                <option value="pl">Polish</option>
+                <option value="pt">Portuguese</option>
+                <option value="ro">Romanian</option>
+                <option value="ru">Russian</option>
+                <option value="rs_cyrillic">Serbian</option>
+                <option value="sck">Nagpuri</option>
+                <option value="es">Spanish</option>
+                <option value="sk">Slovak</option>
+                <option value="sl">Slovenian</option>
+                <option value="sv">Swedish</option>
+                <option value="sw">Swahili</option>
+                <option value="ta">Tamil</option>
+                <option value="tab">Tabassaran</option>
+                <option value="te">Telugu</option>
+                <option value="th">Thai</option>
+                <option value="tjk">Tajik</option>
+                <option value="tl">Tagalog</option>
+                <option value="tr">Turkish</option>
+                <option value="ug">Uyghur</option>
+                <option value="uk">Ukrainian</option>
+                <option value="ur">Urdu</option>
+                <option value="vi">Vietnamese</option>
+            </select>
+        </div>
+        
+        <div class="extraction-options">
+            <h3>Custom Field Extraction</h3>
+            <p>Define fields to extract from documents (e.g., ID cards)</p>
+            
+            <div class="field-toggle">
+                <label for="enableCustomFields">
+                    <input type="checkbox" id="enableCustomFields"> Enable Custom Field Extraction
+                </label>
+            </div>
+            
+            <div id="customFieldsContainer" class="custom-fields" style="display: none;">
+                <div class="field-templates">
+                    <h4>Quick Templates</h4>
+                    <button id="aadharTemplate" class="template-btn">Aadhaar Card</button>
+                    <button id="panTemplate" class="template-btn">PAN Card</button>
+                    <button id="passportTemplate" class="template-btn">Passport</button>
+                    <button id="drivingTemplate" class="template-btn">Driving License</button>
+                </div>
+                
+                <div id="fieldsList">
+                    <!-- Field entries will be added here -->
+                </div>
+                
+                <button id="addFieldBtn" class="small-btn">+ Add Field</button>
+            </div>
+        </div>
+        
+        <label for="fileUpload" class="custom-file-upload">Choose a file</label>
+        <input type="file" id="fileUpload" accept="image/*,application/pdf" />
+        
+        <p id="fileName">No file chosen</p>
+        
+        <div class="image-container">
+            <div class="image-box">
+                <h3>Original Image</h3>
+                <img id="filePreview" src="" alt="File Preview" style="display: none;" />
+            </div>
+            <div class="image-box" id="processedImageContainer">
+                <h3>Processed Image with Bounding Boxes</h3>
+                <img id="processedImage" src="" alt="Processed Image" />
+            </div>
+        </div>
+
+        <button id="uploadButton">Extract Text</button>
+        
+        <div class="results-container">
+            <div class="extracted-fields-container" id="extractedFieldsContainer" style="display: none;">
+                <h3>Extracted Fields</h3>
+                <div id="extractedFieldsResults"></div>
+            </div>
+            
+            <div class="full-text-container">
+                <h3>Full Extracted Text</h3>
+                <textarea id="outputText" placeholder="Extracted text will appear here..." readonly></textarea>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <button id="downloadButton" style="display: none;">Download Text</button>
+            <button id="downloadFieldsButton" style="display: none;">Download Extracted Fields</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
